@@ -293,7 +293,8 @@ setup(
         ],
         'geonotebook.vis.server': [
             "geoserver = geonotebook.vis.geoserver:Geoserver",
-            "ktile = geonotebook.vis.ktile:Ktile"
+            "ktile = geonotebook.vis.ktile:Ktile",
+            "geotrellis = geonotebook.vis.geotrellis:GeoTrellis"
         ],
     }
 )
