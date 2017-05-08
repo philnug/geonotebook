@@ -19,7 +19,7 @@ from .layers import (AnnotationLayer,
                      VectorLayer)
 
 from .utils import get_kernel_id
-from .wrappers import RasterData, RasterDataCollection, VectorData
+from .wrappers import RddRasterData, RasterData, RasterDataCollection, VectorData
 
 
 class Remote(object):
@@ -230,7 +230,7 @@ class Geonotebook(object):
                     predicate=lambda x: ismethod(x) or isfunction(x)
                 ) if fn in cls.msg_types}
 
-        return cls._protocol.values()
+        return list(cls._protocol.values())
 
     def _send_msg(self, msg):
         """Send a message to the client.
@@ -392,7 +392,13 @@ class Geonotebook(object):
             kwargs['zIndex'] = len(self.layers)
 
         # HACK:  figure out a way to do this without so many conditionals
-        if isinstance(data, RasterData):
+        if isinstance(data, RddRasterData):
+            name = data.name
+
+            layer = SimpleLayer(
+                name, self._remote, data=data, vis_url=vis_url, **kwargs
+            )
+        elif isinstance(data, RasterData):
             # TODO verify layer exists in geoserver?
             name = data.name if name is None else name
 
@@ -438,8 +444,11 @@ class Geonotebook(object):
         if hasattr(layer_name, 'name'):
             layer_name = layer_name.name
 
-        def _remove_layer(layer_name):
-            self.layers.remove(layer_name)
+        def _remove_layer(_layer_name):
+            vis_server = Config().vis_server
+            if "disgorge" in dir(vis_server):
+                vis_server.disgorge(layer_name)
+            self.layers.remove(_layer_name)
 
         cb = self._remote.remove_layer(layer_name).then(
             _remove_layer, self.rpc_error).catch(self.callback_error)
@@ -529,6 +538,7 @@ class GeonotebookKernel(IPythonKernel):
         self.geonotebook._remote = Remote(self.comm.send, self._unwrap(msg))
         # Reply to the open comm,  this should probably be set up on
         # self.geonotebook._remote as an actual proceedure call
+
         self.comm.send({
             "method": "set_protocol",
             "data": self.geonotebook.get_protocol()

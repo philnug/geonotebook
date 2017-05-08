@@ -230,13 +230,9 @@ class SimpleLayer(DataLayer):
             name, remote, data=data, vis_url=vis_url, **kwargs
         )
 
-        self.max_zoom = kwargs.get("max_zoom", 12)
-        self.geopysc = kwargs.get("geopysc", None)
-
         if vis_url is None:
             self.vis_url = self.config.vis_server.ingest(
                 self.data, name=self.name, \
-                max_zoom=self.max_zoom, geopysc=self.geopysc, \
                 **self.vis_options.serialize())
         else:
             self.vis_url = vis_url
