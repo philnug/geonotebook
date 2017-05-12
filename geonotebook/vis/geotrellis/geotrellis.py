@@ -62,29 +62,23 @@ class GeoTrellis(object):
 
     def ingest(self, data, name, **kwargs):
         from geopyspark.geotrellis.rdd import RasterRDD, TiledRasterRDD
-        from geopyspark.geotrellis.constants import ZOOM
+        from geopyspark.geotrellis.render import PngRDD
 
         rdd = data.rdd
         if isinstance(rdd, RasterRDD):
             metadata = rdd.collect_metadata()
             laid_out = rdd.tile_to_layout(metadata)
-            reprojected = laid_out.reproject("EPSG:3857", scheme=ZOOM)
+            png = PngRDD.makePyramid(laid_out, data.rampname)
         elif isinstance(rdd, TiledRasterRDD):
             laid_out = rdd
-            reprojected = laid_out.reproject("EPSG:3857", scheme=ZOOM)
+            png = PngRDD.makePyramid(laid_out, data.rampname)
+        elif isinstance(rdd, PngRDD):
+            png = rdd
         else:
-            raise Exception
+            raise TypeError("Expected a RasterRDD, TiledRasterRDD, or PngRDD")
 
-        rdds = {}
-        for layer_rdd in reprojected.pyramid(reprojected.zoom_level, 0):
-            rdds[layer_rdd.zoom_level] = layer_rdd
-        # self.pyramids.update({name: rdds})
-        self.pyramids[name] = rdds
-
-        if self.server_active == False:
-            t = threading.Thread(target=moop, args=(self.pyramids, self.port))
-            t.start()
-            self.server_active = True
+        t = threading.Thread(target=moop, args=(png, self.port))
+        t.start()
 
         self.base_url = "http://localhost:8000/user/hadoop/geotrellis" # XXX
         return self.base_url + "/" + str(self.port) + "/" + name
