@@ -1,11 +1,15 @@
 import io
+import logging
 import numpy as np
 import rasterio
 import threading
+import sys
 import time
 
+from flask import Flask, make_response, abort, request
 from PIL import Image
 
+lock = threading.Lock()
 
 def make_image(arr):
     return Image.fromarray(arr.astype('uint8')).convert('L')
@@ -27,45 +31,52 @@ def alpha(x):
 
 clamp = np.vectorize(clamp)
 alpha = np.vectorize(alpha)
-lock = threading.Lock()
 
-def moop(pyramids, port):
-    from flask import Flask, make_response, abort
+def set_server_routes(app):
+    app.config['PROPAGATE_EXCEPTIONS'] = True
 
-    app = Flask(__name__)
-    app.reader = None
+    def shutdown_server():
+        func = request.environ.get('werkzeug.server.shutdown')
+        if func is None:
+            raise RuntimeError('Not running with the Werkzeug Server')
+        func()
 
     @app.route("/time")
     def ping():
         return time.strftime("%H:%M:%S") + "\n"
 
+    @app.route('/shutdown')
+    def shutdown():
+        shutdown_server()
 
-    @app.route("/exists/<layer_name>")
-    def exists(layer_name):
-        return str(layer_name in pyramids) + "\n"
+def make_tile_server(port, fn):
+    '''
+    Makes a tile server and starts it on the given port, using a function
+    that takes z, x, y as the tile route.
+    '''
+    app = Flask(__name__)
+    # logging.basicConfig(level=logging.DEBUG, format='%(relativeCreated)6d %(threadName)s %(message)s')
 
-    @app.route("/remove/<layer_name>")
-    def remove(layer_name):
-        if layer_name in pyramids:
-            del pyramids[layer_name]
-            return "yes\n"
-        else:
-            return "no\n"
+    set_server_routes(app)
 
-    @app.route("/tile/<layer_name>/<int:x>/<int:y>/<int:zoom>.png")
-    def tile(layer_name, x, y, zoom):
+    @app.route("/tile/<int:z>/<int:x>/<int:y>.png")
+    def tile(z, x, y):
+        try:
+            return fn(z, x, y)
+        except Exception as e:
+            return make_response("Tile route error: %s" % str(e), 500)
+
+    return app.run(host='0.0.0.0', port=port, threaded=True)
+
+def rdd_server(port, pyramid):
+    def tile(z, x, y):
+        # logging.debug("---------------DOES THIS SHOW UP")
 
         # fetch data
-        try:
-            lock.acquire()
-            pyramid = pyramids[layer_name]
-            rdd = pyramid[zoom]
-            tile = rdd.lookup(col=x, row=y)
-            arr = tile[0]['data']
-        except:
-            arr = None
-        finally:
-            lock.release()
+        rdd = pyramid[z]
+        tile = rdd.lookup(col=x, row=y)
+
+        arr = tile[0]['data']
 
         if arr == None:
             abort(404)
@@ -92,6 +103,51 @@ def moop(pyramids, port):
         image.save(bio, 'PNG')
         response = make_response(bio.getvalue())
         response.headers['Content-Type'] = 'image/png'
+
         return response
 
-    app.run(host='0.0.0.0', port=port)
+    return make_tile_server(port, tile)
+
+def catalog_layer_server(port, value_reader, layer_name, key_type, render_tile):
+    def tile(z, x, y):
+        tile = value_reader.readTile(key,
+                                     layer_name,
+                                     layer_zoom,
+                                     col,
+                                     row,
+                                     "")
+        arr = tile['data']
+
+        image = render_tile(arr)
+
+        # image = Image.merge('RGBA', rgba)
+
+        # if render_tile:
+        #     image = make_image(arr)
+        # else:
+        #     bands = arr.shape[0]
+        #     if bands >= 3:
+        #         bands = 3
+        #     else:
+        #         bands = 1
+        #         arrs = [np.array(arr[i, :, :]).reshape(256, 256) for i in range(bands)]
+
+        #         # create tile
+        #         if bands == 3:
+        #             images = [make_image(clamp(arr)) for arr in arrs]
+        #             images.append(make_image(alpha(arrs[0])))
+        #             image = Image.merge('RGBA', images)
+        #         else:
+        #             gray = make_image(clamp(arrs[0]))
+        #             alfa = make_image(alpha(arrs[0]))
+        #             image = Image.merge('RGBA', list(gray, gray, gray, alfa))
+        bio = io.BytesIO()
+        image.save(bio, 'PNG')
+
+        # return tile
+        response = make_response(bio.getvalue())
+        response.headers['Content-Type'] = 'image/png'
+
+        return response
+
+    return make_tile_server(port, tile)
