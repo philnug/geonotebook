@@ -9,16 +9,29 @@ import traceback
 
 from gevent.pywsgi import WSGIServer
 
+###
+from PIL import Image, ImageDraw, ImageFont
+
+def make_image(arr):
+    return Image.fromarray(arr.astype('uint8')).convert('L')
+
+def clamp(x):
+    if (x < 0.0):
+        x = 0
+    elif (x >= 1.0):
+        x = 255
+    else:
+        x = (int)(x * 255)
+    return x
+###
+
 from flask import Flask, make_response, abort, request
-from PIL import Image
 
 def respond_with_image(image):
     bio = io.BytesIO()
     image.save(bio, 'PNG')
     response = make_response(bio.getvalue())
     response.headers['Content-Type'] = 'image/png'
-
-    return response
 
 def make_tile_server(port, fn):
     '''
@@ -85,5 +98,35 @@ def catalog_layer_server(port, value_reader, layer_name, key_type, tile_type, av
         image = render_tile(arr)
 
         return respond_with_image(image)
+
+    return make_tile_server(port, tile)
+
+def png_layer_server(port, png):
+    def tile(z, x, y):
+
+        # fetch data
+        try:
+            img = png.lookup(x, y, z)
+        except:
+            img = None
+
+        if img == None or len(img) == 0:
+            if png.debug:
+                image = Image.new('RGBA', (256,256))
+                draw = ImageDraw.Draw(image)
+                draw.rectangle([0, 0, 255, 255], outline=(255,0,0,255))
+                draw.line([(0,0),(255,255)], fill=(255,0,0,255))
+                draw.line([(0,255),(255,0)], fill=(255,0,0,255))
+                draw.text((136,122), str(x) + ', ' + str(y) + ', ' + str(zoom), fill=(255,0,0,255))
+                del draw
+                bio = io.BytesIO()
+                image.save(bio, 'PNG')
+                img = [bio.getvalue()]
+            else:
+                abort(404)
+
+        response = make_response(img[0])
+        response.headers['Content-Type'] = 'image/png'
+        return response
 
     return make_tile_server(port, tile)

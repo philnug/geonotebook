@@ -99,7 +99,7 @@ class GeoTrellis(object):
 
     def ingest(self, data, name, **kwargs):
         from geopyspark.geotrellis.rdd import RasterRDD, TiledRasterRDD
-        from geopyspark.geotrellis.constants import ZOOM
+        from geopyspark.geotrellis.render import PngRDD
 
         inproc_server_states = kwargs.pop('inproc_server_states', None)
         if inproc_server_states is None:
@@ -116,27 +116,31 @@ class GeoTrellis(object):
         # TODO: refactor this to different methods?
         if isinstance(data, RddRasterData):
             rdd = data.rdd
-            if isinstance(rdd, RasterRDD):
-                metadata = rdd.collect_metadata()
-                laid_out = rdd.tile_to_layout(metadata)
-                reprojected = laid_out.reproject("EPSG:3857", scheme=ZOOM)
-            elif isinstance(rdd, TiledRasterRDD):
-                laid_out = rdd
-                reprojected = laid_out.reproject("EPSG:3857", scheme=ZOOM)
+            if isinstance(rdd, PngRDD):
+                t = threading.Thread(target=png_layer_server, args=(port, rdd))
+                t.start()
             else:
-                raise Exception("RddRasterData data must be an RDD, found %s" % (type(data)))
+                if isinstance(rdd, RasterRDD):
+                    metadata = rdd.collect_metadata()
+                    laid_out = rdd.tile_to_layout(metadata)
+                    reprojected = laid_out.reproject("EPSG:3857", scheme=ZOOM)
+                elif isinstance(rdd, TiledRasterRDD):
+                    laid_out = rdd
+                    reprojected = laid_out.reproject("EPSG:3857", scheme=ZOOM)
+                else:
+                    raise Exception("RddRasterData data must be an RDD, found %s" % (type(data)))
 
-            render_tile = kwargs.pop('render_tile', None)
-            if render_tile is None:
-                render_tile = render_default_rdd
+                render_tile = kwargs.pop('render_tile', None)
+                if render_tile is None:
+                    render_tile = render_default_rdd
 
-            rdds = {}
-            for layer_rdd in reprojected.pyramid(reprojected.zoom_level, 0):
-                rdds[layer_rdd.zoom_level] = layer_rdd
+                rdds = {}
+                for layer_rdd in reprojected.pyramid(reprojected.zoom_level, 0):
+                    rdds[layer_rdd.zoom_level] = layer_rdd
 
-            args = (server_port, rdds, render_tile)
-            t = threading.Thread(target=rdd_server, args=args)
-            t.start()
+                args = (server_port, rdds, render_tile)
+                t = threading.Thread(target=rdd_server, args=args)
+                t.start()
         elif isinstance(data, GeoTrellisCatalogLayerData):
             render_tile = kwargs.pop('render_tile', None)
             if render_tile is None:
@@ -150,8 +154,6 @@ class GeoTrellis(object):
                     render_tile)
             p = multiprocessing.Process(target=catalog_layer_server, args=args)
             p.start()
-            # t = threading.Thread(target=catalog_layer_server, args=args)
-            # t.start()
         else:
             raise Exception("GeoTrellis vis server cannot handle data of type %s" % (type(data)))
 
