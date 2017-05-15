@@ -32,6 +32,7 @@ def respond_with_image(image):
     image.save(bio, 'PNG')
     response = make_response(bio.getvalue())
     response.headers['Content-Type'] = 'image/png'
+    return response
 
 def make_tile_server(port, fn):
     '''
@@ -50,6 +51,7 @@ def make_tile_server(port, fn):
         try:
             t = threading.Thread(target=shutdown)
             t.start()
+            # Do not return a response, as this causes odd issues.
         except Exception as e:
             return make_response("Tile route error: %s - %s" % (str(e), traceback.format_exc()), 500)
 
@@ -96,6 +98,31 @@ def catalog_layer_server(port, value_reader, layer_name, key_type, tile_type, av
         ser = AvroSerializer(tile._2(), decoder, encoder)
         arr = ser.loads(tile._1())[0]['data']
         image = render_tile(arr)
+
+        return respond_with_image(image)
+
+    return make_tile_server(port, tile)
+
+def catalog_multilayer_server(port, value_reader, layer_names, key_type, tile_type, avroregistry, render_tile):
+    from geopyspark.avroserializer import AvroSerializer
+
+    def tile(z, x, y):
+        tiles = []
+        decoder = avroregistry._get_decoder(tile_type)
+        encoder = avroregistry._get_encoder(tile_type)
+
+        for layer_name in layer_names:
+            value = value_reader.readTile(key_type,
+                                          layer_name,
+                                          z,
+                                          x,
+                                          y,
+                                          "")
+            ser = AvroSerializer(value._2(), decoder, encoder)
+            tile = ser.loads(value._1())[0]['data']
+            tiles.append(tile)
+
+        image = render_tile(tiles)
 
         return respond_with_image(image)
 
