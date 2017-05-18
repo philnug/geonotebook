@@ -32,14 +32,14 @@ def make_tile_server(port, fn):
     # sys.stdout = f
     sys.stderr = f
 
-    def shutdown():
+    def shutdown1():
         time.sleep(0.5)
         http_server.stop()
 
     @app.route('/shutdown')
-    def shutdown():
+    def shutdown2():
         try:
-            t = threading.Thread(target=shutdown)
+            t = threading.Thread(target=shutdown1)
             t.start()
             # Do not return a response, as this causes odd issues.
         except Exception as e:
