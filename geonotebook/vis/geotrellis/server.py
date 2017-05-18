@@ -8,6 +8,7 @@ import sys
 import time
 import traceback
 
+from random import randint
 from gevent.pywsgi import WSGIServer
 from PIL import Image, ImageDraw, ImageFont
 from flask import Flask, make_response, abort, request
@@ -20,13 +21,13 @@ def respond_with_image(image):
     response.headers['Content-Type'] = 'image/png'
     return response
 
-def make_tile_server(port, fn):
+def make_tile_server(port_coordination, fn):
     '''
     Makes a tile server and starts it on the given port, using a function
     that takes z, x, y as the tile route.
     '''
     app = Flask(__name__)
-    http_server = WSGIServer(('', port), app)
+    http_server = None
 
     f = open(os.devnull, "w")
     # sys.stdout = f
@@ -45,6 +46,10 @@ def make_tile_server(port, fn):
         except Exception as e:
             return make_response("Tile route error: %s - %s" % (str(e), traceback.format_exc()), 500)
 
+    @app.route('/handshake')
+    def handshake():
+        return port_coordination['handshake']
+
     @app.route("/tile/<int:z>/<int:x>/<int:y>.png")
     def tile(z, x, y):
         try:
@@ -52,7 +57,14 @@ def make_tile_server(port, fn):
         except Exception as e:
             return make_response("Tile route error: %s - %s" % (str(e), traceback.format_exc()), 500)
 
-    return http_server.serve_forever()
+    port_coordination['port'] = -1
+    while port_coordination['port'] < 0:
+        try:
+            port_coordination['port'] = randint(49152, 65535)
+            http_server = WSGIServer(('', port_coordination['port']), app)
+            return http_server.serve_forever()
+        except:
+            port_coordination['port'] = -1
 
 def rdd_server(port, pyramid, render_tile):
     def tile(z, x, y):

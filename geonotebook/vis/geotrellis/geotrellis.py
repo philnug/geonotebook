@@ -1,13 +1,13 @@
+import os
 import requests
 import threading
-import multiprocessing
 import time
 import logging
 
+from datetime import datetime
 from notebook.base.handlers import IPythonHandler
 from geonotebook.wrappers import (RddRasterData,
                                   GeoTrellisCatalogLayerData)
-from random import randint
 from .server import (rdd_server,
                      catalog_layer_server,
                      catalog_multilayer_server,
@@ -17,6 +17,7 @@ from .render_methods import render_default_rdd
 
 logger = logging.getLogger('geotrellis-tile-server')
 # jupyterhub --no-ssl --Spawner.notebook_dir=/home/hadoop/notebooks
+
 
 class GeoTrellisTileHandler(IPythonHandler):
 
@@ -98,7 +99,8 @@ class GeoTrellis(object):
         if 'geotrellis' in inproc_server_states:
             if name in inproc_server_states['geotrellis']['ports']:
                 port = inproc_server_states['geotrellis']['ports'][name]
-                url = "http://localhost:8000/user/hadoop/geotrellis/%s/shutdown" % port
+                user = os.environ['LOGNAME'] if 'LOGNAME' in os.environ else 'hadoop'
+                url = "http://localhost:8000/user/%s/geotrellis/%s/shutdown" % (user, port)
                 response = requests.get(url)
                 status_code = response.status_code
                 inproc_server_states['geotrellis']['ports'].pop(name, None)
@@ -118,15 +120,13 @@ class GeoTrellis(object):
         if not "geotrellis" in inproc_server_states:
             inproc_server_states["geotrellis"] = { "ports" : {} }
 
-        server_port = randint(49152, 65535)
-        while server_port in inproc_server_states['geotrellis']['ports'].values():
-            server_port = randint(49152, 65535)
+        port_coordination = {'handshake': str(datetime.now()) + " " + str(os.getpid()) + " " + str(datetime.now()) + "\n"}
 
         # TODO: refactor this to different methods?
         if isinstance(data, RddRasterData):
             rdd = data.rdd
             if isinstance(rdd, PngRDD):
-                t = threading.Thread(target=png_layer_server, args=(server_port, rdd))
+                t = threading.Thread(target=png_layer_server, args=(port_coordination, rdd))
                 t.start()
             else:
                 if isinstance(rdd, RasterRDD):
@@ -147,7 +147,7 @@ class GeoTrellis(object):
                 for layer_rdd in reprojected.pyramid(reprojected.zoom_level, 0):
                     rdds[layer_rdd.zoom_level] = layer_rdd
 
-                args = (server_port, rdds, render_tile)
+                args = (port_coordination, rdds, render_tile)
                 t = threading.Thread(target=rdd_server, args=args)
                 t.start()
         elif isinstance(data, GeoTrellisCatalogLayerData):
@@ -155,7 +155,7 @@ class GeoTrellis(object):
             if render_tile is None:
                 raise Exception("GeoTrellis Layers require render_tile function.")
 
-            args = (server_port,
+            args = (port_coordination,
                     data.value_reader,
                     data.layer_name,
                     data.key_type,
@@ -163,14 +163,26 @@ class GeoTrellis(object):
                     data.avroregistry,
                     render_tile)
             if isinstance(data.layer_name, list):
-                p = multiprocessing.Process(target=catalog_multilayer_server, args=args)
+                t = threading.Thread(target=catalog_multilayer_server, args=args)
             else:
-                p = multiprocessing.Process(target=catalog_layer_server, args=args)
-            p.start()
+                t = threading.Thread(target=catalog_layer_server, args=args)
+            t.start()
         else:
             raise Exception("GeoTrellis vis server cannot handle data of type %s" % (type(data)))
 
-        inproc_server_states['geotrellis']['ports'][name] = server_port
+        keep_looping = True
+        while keep_looping:
+            if 'port' in port_coordination:
+                port = port_coordination['port']
+                if port > 0:
+                    url = "http://localhost:%s/handshake" % port
+                    response = requests.get(url)
+                    if response.text == port_coordination['handshake']:
+                        keep_looping = False
+            time.sleep(0.68) # nearly an eternity
 
-        base_url = "http://localhost:8000/user/hadoop/geotrellis" # TODO: Get rid of hardcoded user
-        return "%s/%d" % (base_url, server_port)
+        inproc_server_states['geotrellis']['ports'][name] = port_coordination['port']
+
+        user = os.environ['LOGNAME'] if 'LOGNAME' in os.environ else 'hadoop'
+        base_url = "http://localhost:8000/user/%s/geotrellis" % user
+        return "%s/%d" % (base_url, port_coordination['port'])
