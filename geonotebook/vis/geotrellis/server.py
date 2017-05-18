@@ -9,24 +9,9 @@ import time
 import traceback
 
 from gevent.pywsgi import WSGIServer
-
-###
 from PIL import Image, ImageDraw, ImageFont
-
-def make_image(arr):
-    return Image.fromarray(arr.astype('uint8')).convert('L')
-
-def clamp(x):
-    if (x < 0.0):
-        x = 0
-    elif (x >= 1.0):
-        x = 255
-    else:
-        x = (int)(x * 255)
-    return x
-###
-
 from flask import Flask, make_response, abort, request
+
 
 def respond_with_image(image):
     bio = io.BytesIO()
