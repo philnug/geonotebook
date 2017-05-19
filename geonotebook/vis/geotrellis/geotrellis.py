@@ -47,30 +47,6 @@ class GeoTrellisTileHandler(IPythonHandler):
             self.set_status(500)
             self.finish()
 
-class GeoTrellisShutdownHandler(IPythonHandler):
-
-    def initialize(self):
-        pass
-
-    def get(self, port):
-        url = "http://localhost:%s/shutdown" % port
-        response = requests.get(url)
-        self.set_header('Content-Type', 'text/html')
-        self.write(str(response.content))
-        self.set_status(200)
-        self.finish()
-
-        # if response.status_code == requests.codes.ok:
-        #     self.set_header('Content-Type', 'text/html')
-        #     self.write(str(response.content))
-        #     self.set_status(200)
-        #     self.finish()
-        # else:
-        #     self.set_header('Content-Type', 'text/html')
-        #     self.write(str(response.content))
-        #     self.set_status(500)
-        #     self.finish()
-
 class GeoTrellis(object):
 
     def __init__(self, config, url):
@@ -85,8 +61,6 @@ class GeoTrellis(object):
     def initialize_webapp(self, config, webapp):
         pattern = r'/user/[^/]+/geotrellis/([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+)\.png.*'
         webapp.add_handlers(r'.*', [(pattern, GeoTrellisTileHandler)])
-        pattern = r'/user/[^/]+/geotrellis/([0-9]+)/shutdown*'
-        webapp.add_handlers(r'.*', [(pattern, GeoTrellisShutdownHandler)])
 
     def get_params(self, name, data, **kwargs):
         return {}
@@ -100,7 +74,7 @@ class GeoTrellis(object):
             if name in inproc_server_states['geotrellis']['ports']:
                 port = inproc_server_states['geotrellis']['ports'][name]
                 user = os.environ['LOGNAME'] if 'LOGNAME' in os.environ else 'hadoop'
-                url = "http://localhost:8000/user/%s/geotrellis/%s/shutdown" % (user, port)
+                url = "http://localhost:%s/shutdown" % port
                 response = requests.get(url)
                 status_code = response.status_code
                 inproc_server_states['geotrellis']['ports'].pop(name, None)
