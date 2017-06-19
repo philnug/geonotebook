@@ -24,6 +24,15 @@ class RddRasterData(object):
         else:
             self.name = name
 
+class TMSRasterData(object):
+    def __init__(self, tms, name=None):
+        self.tms = tms
+
+        if not name:
+            self.name = str(hash(tms))
+        else:
+            self.name = name
+
 class GeoTrellisCatalogLayerData(object):
 
     def __init__(self,

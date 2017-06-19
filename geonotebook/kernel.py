@@ -24,6 +24,7 @@ from .utils import get_kernel_id
 from .wrappers import (RddRasterData,
                        GeoTrellisCatalogLayerData,
                        RasterData,
+                       TMSRasterData,
                        RasterDataCollection,
                        VectorData,
                        GeoJsonData)
@@ -414,6 +415,16 @@ class Geonotebook(object):
 
         elif isinstance(data, GeoTrellisCatalogLayerData):
             name = "%s__%s" % (hash(data.catalog_uri), data.layer_name)
+
+            layer = InProcessTileLayer(name,
+                                       self._remote,
+                                       data=data,
+                                       inproc_server_states=self._inproc_server_states,
+                                       vis_url=vis_url,
+                                       **kwargs)
+
+        elif isinstance(data, TMSRasterData):
+            name = data.name
 
             layer = InProcessTileLayer(name,
                                        self._remote,

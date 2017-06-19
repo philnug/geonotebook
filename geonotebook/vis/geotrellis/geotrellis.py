@@ -6,8 +6,9 @@ import logging
 
 from datetime import datetime
 from notebook.base.handlers import IPythonHandler
-from geonotebook.wrappers import (RddRasterData,
-                                  GeoTrellisCatalogLayerData)
+from geonotebook.wrappers.raster import (RddRasterData,
+                                         TMSRasterData,
+                                         GeoTrellisCatalogLayerData)
 from .server import (rdd_server,
                      catalog_layer_server,
                      catalog_multilayer_server,
@@ -16,6 +17,7 @@ from .server import (rdd_server,
 from .render_methods import render_default_rdd
 
 logger = logging.getLogger('geotrellis-tile-server')
+logger.setLevel(10)
 # jupyterhub --no-ssl --Spawner.notebook_dir=/home/hadoop/notebooks
 
 
@@ -97,7 +99,15 @@ class GeoTrellis(object):
         port_coordination = {'handshake': str(datetime.now()) + " " + str(os.getpid()) + " " + str(datetime.now()) + "\n"}
 
         # TODO: refactor this to different methods?
-        if isinstance(data, RddRasterData):
+        if isinstance(data, TMSRasterData):
+            tms = data.tms
+            geopysc = tms.geopysc
+            server = tms.server
+            server.setHandshake(port_coordination['handshake'])
+            server.bind("0.0.0.0")
+            port_coordination['port'] = server.port()
+            print('Added TMS server at port {}'.format(server.port()))
+        elif isinstance(data, RddRasterData):
             rdd = data.rdd
             if isinstance(rdd, PngRDD):
                 t = threading.Thread(target=png_layer_server, args=(port_coordination, rdd))
