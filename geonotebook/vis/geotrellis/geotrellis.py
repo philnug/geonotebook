@@ -168,5 +168,5 @@ class GeoTrellis(object):
         inproc_server_states['geotrellis']['ports'][name] = port_coordination['port']
 
         user = os.environ['LOGNAME'] if 'LOGNAME' in os.environ else 'hadoop'
-        base_url = "http://localhost:8000/user/%s/geotrellis" % user
+        base_url = "/user/%s/geotrellis" % user
         return "%s/%d" % (base_url, port_coordination['port'])
