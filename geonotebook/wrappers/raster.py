@@ -55,8 +55,6 @@ class GeoTrellisCatalogLayerData(object):
         self.value_reader = catalog.value_reader
         self.layer_name = layer_name
         self.key_type =  geopysc.map_key_input(key_type, True)
-        self.tile_type = tile_type
-        self.avroregistry = geopysc.avroregistry
 
 class RasterData(collections.Sequence):
     _default_schema = 'file'

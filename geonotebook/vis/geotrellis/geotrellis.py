@@ -143,8 +143,6 @@ class GeoTrellis(object):
                     data.value_reader,
                     data.layer_name,
                     data.key_type,
-                    data.tile_type,
-                    data.avroregistry,
                     render_tile)
             if isinstance(data.layer_name, list):
                 t = threading.Thread(target=catalog_multilayer_server, args=args)
