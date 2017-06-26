@@ -106,6 +106,7 @@ class GeoTrellis(object):
             server.setHandshake(port_coordination['handshake'])
             server.bind("0.0.0.0")
             port_coordination['port'] = server.port()
+            print('Added TMS server at host {}'.format(server.host()))
             print('Added TMS server at port {}'.format(server.port()))
         elif isinstance(data, RddRasterData):
             rdd = data.rdd
