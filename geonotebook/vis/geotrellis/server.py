@@ -12,6 +12,7 @@ from random import randint
 from gevent.pywsgi import WSGIServer
 from PIL import Image, ImageDraw, ImageFont
 from flask import Flask, make_response, abort, request
+from geopyspark.geotrellis.protobufcodecs import multibandtile_decoder
 
 
 def respond_with_image(image):
@@ -84,9 +85,7 @@ def rdd_server(port, pyramid, render_tile):
 
     return make_tile_server(port, tile)
 
-def catalog_layer_server(port, value_reader, layer_name, key_type, tile_type, avroregistry, render_tile):
-    from geopyspark.avroserializer import AvroSerializer
-
+def catalog_layer_server(port, value_reader, layer_name, key_type, render_tile):
     def tile(z, x, y):
         tile = value_reader.readTile(key_type,
                                      layer_name,
@@ -97,24 +96,16 @@ def catalog_layer_server(port, value_reader, layer_name, key_type, tile_type, av
         if not tile:
             abort(404)
 
-        decoder = avroregistry._get_decoder(tile_type)
-        encoder = avroregistry._get_encoder(tile_type)
-
-        ser = AvroSerializer(tile._2(), decoder, encoder)
-        arr = ser.loads(tile._1())[0]['data']
+        arr = multibandtile_decoder(tile)['data']
         image = render_tile(arr)
 
         return respond_with_image(image)
 
     return make_tile_server(port, tile)
 
-def catalog_multilayer_server(port, value_reader, layer_names, key_type, tile_type, avroregistry, render_tile):
-    from geopyspark.avroserializer import AvroSerializer
-
+def catalog_multilayer_server(port, value_reader, layer_names, key_type, render_tile):
     def tile(z, x, y):
         tiles = []
-        decoder = avroregistry._get_decoder(tile_type)
-        encoder = avroregistry._get_encoder(tile_type)
 
         for layer_name in layer_names:
             value = value_reader.readTile(key_type,
@@ -126,8 +117,7 @@ def catalog_multilayer_server(port, value_reader, layer_names, key_type, tile_ty
             if not value:
                 abort(404)
 
-            ser = AvroSerializer(value._2(), decoder, encoder)
-            tile = ser.loads(value._1())[0]['data']
+            tile = multibandtile_decoder(value)['data']
             tiles.append(tile)
 
         image = render_tile(tiles)
