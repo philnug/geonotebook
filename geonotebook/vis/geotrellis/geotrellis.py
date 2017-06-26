@@ -84,7 +84,7 @@ class GeoTrellis(object):
         return None
 
     def ingest(self, data, name, **kwargs):
-        from geopyspark.geotrellis.rdd import RasterRDD, TiledRasterRDD
+        from geopyspark.geotrellis.layer import RasterLayer, TiledRasterLayer
         from geopyspark.geotrellis.render import PngRDD
         from geopyspark.geotrellis.constants import ZOOM
 
@@ -114,11 +114,11 @@ class GeoTrellis(object):
                 t = threading.Thread(target=png_layer_server, args=(port_coordination, rdd))
                 t.start()
             else:
-                if isinstance(rdd, RasterRDD):
+                if isinstance(rdd, RasterLayer):
                     metadata = rdd.collect_metadata()
                     laid_out = rdd.tile_to_layout(metadata)
                     reprojected = laid_out.reproject("EPSG:3857", scheme=ZOOM)
-                elif isinstance(rdd, TiledRasterRDD):
+                elif isinstance(rdd, TiledRasterLayer):
                     laid_out = rdd
                     reprojected = laid_out.reproject("EPSG:3857", scheme=ZOOM)
                 else:
