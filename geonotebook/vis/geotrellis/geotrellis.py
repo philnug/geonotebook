@@ -101,7 +101,6 @@ class GeoTrellis(object):
         # TODO: refactor this to different methods?
         if isinstance(data, TMSRasterData):
             tms = data.tms
-            geopysc = tms.geopysc
             server = tms.server
             server.setHandshake(port_coordination['handshake'])
             server.bind("0.0.0.0")
