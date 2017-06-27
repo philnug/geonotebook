@@ -12,7 +12,6 @@ from random import randint
 from gevent.pywsgi import WSGIServer
 from PIL import Image, ImageDraw, ImageFont
 from flask import Flask, make_response, abort, request
-from geopyspark.geotrellis.protobufcodecs import multibandtile_decoder
 
 
 def respond_with_image(image):
@@ -86,6 +85,8 @@ def rdd_server(port, pyramid, render_tile):
     return make_tile_server(port, tile)
 
 def catalog_layer_server(port, value_reader, layer_name, key_type, render_tile):
+    from geopyspark.geotrellis.protobufcodecs import multibandtile_decoder
+
     def tile(z, x, y):
         tile = value_reader.readTile(key_type,
                                      layer_name,
@@ -104,6 +105,8 @@ def catalog_layer_server(port, value_reader, layer_name, key_type, render_tile):
     return make_tile_server(port, tile)
 
 def catalog_multilayer_server(port, value_reader, layer_names, key_type, render_tile):
+    from geopyspark.geotrellis.protobufcodecs import multibandtile_decoder
+
     def tile(z, x, y):
         tiles = []
 

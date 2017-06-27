@@ -84,7 +84,7 @@ class GeoTrellis(object):
         return None
 
     def ingest(self, data, name, **kwargs):
-        from geopyspark.geotrellis.rdd import RasterRDD, TiledRasterRDD
+        from geopyspark.geotrellis.layer import RasterLayer, TiledRasterLayer
         from geopyspark.geotrellis.render import PngRDD
         from geopyspark.geotrellis.constants import ZOOM
 
@@ -101,11 +101,11 @@ class GeoTrellis(object):
         # TODO: refactor this to different methods?
         if isinstance(data, TMSRasterData):
             tms = data.tms
-            geopysc = tms.geopysc
             server = tms.server
             server.setHandshake(port_coordination['handshake'])
             server.bind("0.0.0.0")
             port_coordination['port'] = server.port()
+            print('Added TMS server at host {}'.format(server.host()))
             print('Added TMS server at port {}'.format(server.port()))
         elif isinstance(data, RddRasterData):
             rdd = data.rdd
@@ -113,11 +113,11 @@ class GeoTrellis(object):
                 t = threading.Thread(target=png_layer_server, args=(port_coordination, rdd))
                 t.start()
             else:
-                if isinstance(rdd, RasterRDD):
+                if isinstance(rdd, RasterLayer):
                     metadata = rdd.collect_metadata()
                     laid_out = rdd.tile_to_layout(metadata)
                     reprojected = laid_out.reproject("EPSG:3857", scheme=ZOOM)
-                elif isinstance(rdd, TiledRasterRDD):
+                elif isinstance(rdd, TiledRasterLayer):
                     laid_out = rdd
                     reprojected = laid_out.reproject("EPSG:3857", scheme=ZOOM)
                 else:

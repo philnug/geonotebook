@@ -11,11 +11,11 @@ from shapely.geometry import Polygon
 class RddRasterData(object):
 
     def __init__(self, rdd, name=None):
-        from geopyspark.geotrellis.rdd import RasterRDD, TiledRasterRDD
+        from geopyspark.geotrellis.layer import RasterLayer, TiledRasterLayer
         from geopyspark.geotrellis.render import PngRDD
 
-        if not (isinstance(rdd, RasterRDD) or isinstance(rdd, TiledRasterRDD) or isinstance(rdd, PngRDD)):
-            raise TypeError("Expected a RasterRDD, TiledRasterRDD, or PngRDD")
+        if not (isinstance(rdd, RasterLayer) or isinstance(rdd, TiledRasterLayer) or isinstance(rdd, PngRDD)):
+            raise TypeError("Expected a RasterLayer, TiledRasterLayer, or PngRDD")
 
         self.rdd = rdd
 
