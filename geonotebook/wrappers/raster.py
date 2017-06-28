@@ -8,22 +8,6 @@ import pkg_resources as pr
 
 from shapely.geometry import Polygon
 
-class RddRasterData(object):
-
-    def __init__(self, rdd, name=None):
-        from geopyspark.geotrellis.layer import RasterLayer, TiledRasterLayer
-        from geopyspark.geotrellis.render import PngRDD
-
-        if not (isinstance(rdd, RasterLayer) or isinstance(rdd, TiledRasterLayer) or isinstance(rdd, PngRDD)):
-            raise TypeError("Expected a RasterLayer, TiledRasterLayer, or PngRDD")
-
-        self.rdd = rdd
-
-        if not name:
-            self.name = str(hash(rdd))
-        else:
-            self.name = name
-
 class TMSRasterData(object):
     def __init__(self, tms, name=None):
         self.tms = tms
