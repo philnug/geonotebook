@@ -21,8 +21,7 @@ from .layers import (AnnotationLayer,
                      VectorLayer)
 
 from .utils import get_kernel_id
-from .wrappers import (RddRasterData,
-                       GeoTrellisCatalogLayerData,
+from .wrappers import (GeoTrellisCatalogLayerData,
                        RasterData,
                        TMSRasterData,
                        RasterDataCollection,
@@ -403,17 +402,7 @@ class Geonotebook(object):
             kwargs['zIndex'] = len(self.layers)
 
         # HACK:  figure out a way to do this without so many conditionals
-        if isinstance(data, RddRasterData):
-            name = data.name
-
-            layer = InProcessTileLayer(name,
-                                       self._remote,
-                                       data=data,
-                                       inproc_server_states=self._inproc_server_states,
-                                       vis_url=vis_url,
-                                       **kwargs)
-
-        elif isinstance(data, GeoTrellisCatalogLayerData):
+        if isinstance(data, GeoTrellisCatalogLayerData):
             name = "%s__%s" % (hash(data.catalog_uri), data.layer_name)
 
             layer = InProcessTileLayer(name,
