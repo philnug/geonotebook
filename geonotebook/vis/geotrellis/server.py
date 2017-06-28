@@ -129,32 +129,3 @@ def catalog_multilayer_server(port, value_reader, layer_names, key_type, render_
 
     return make_tile_server(port, tile)
 
-def png_layer_server(port, png):
-    def tile(z, x, y):
-
-        # fetch data
-        try:
-            img = png.lookup(x, y, z)
-        except:
-            img = None
-
-        if img == None or len(img) == 0:
-            if png.debug:
-                image = Image.new('RGBA', (256,256))
-                draw = ImageDraw.Draw(image)
-                draw.rectangle([0, 0, 255, 255], outline=(255,0,0,255))
-                draw.line([(0,0),(255,255)], fill=(255,0,0,255))
-                draw.line([(0,255),(255,0)], fill=(255,0,0,255))
-                draw.text((136,122), str(x) + ', ' + str(y) + ', ' + str(zoom), fill=(255,0,0,255))
-                del draw
-                bio = io.BytesIO()
-                image.save(bio, 'PNG')
-                img = [bio.getvalue()]
-            else:
-                abort(404)
-
-        response = make_response(img[0])
-        response.headers['Content-Type'] = 'image/png'
-        return response
-
-    return make_tile_server(port, tile)
