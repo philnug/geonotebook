@@ -78,6 +78,4 @@ class Config(object):
 
 for ep in pkg_resources.iter_entry_points(
         group='geonotebook.vis.server'):
-    print(ep.name)
-    print(ep.load())
     Config.register_vis_server(ep.name, ep.load())
