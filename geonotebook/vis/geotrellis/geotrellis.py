@@ -4,6 +4,11 @@ import threading
 import time
 import logging
 
+from concurrent.futures import ThreadPoolExecutor
+from tornado.httpclient import AsyncHTTPClient
+from tornado import concurrent, ioloop
+from tornado import gen
+
 from datetime import datetime
 from notebook.base.handlers import IPythonHandler
 from geonotebook.wrappers.raster import (TMSRasterData,
@@ -19,29 +24,46 @@ logger.setLevel(10)
 # jupyterhub --no-ssl --Spawner.notebook_dir=/home/hadoop/notebooks
 
 
+class GTAsyncClient(object):
+    __instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls.__instance is None:
+            cls.__instance = super(
+                GTAsyncClient, cls).__new__(cls, *args, **kwargs)
+        return cls.__instance
+
+    def __init__(self):
+        self.executor = ThreadPoolExecutor(max_workers=12)
+        self.io_loop = ioloop.IOLoop.current()
+
+
 class GeoTrellisTileHandler(IPythonHandler):
 
     def initialize(self):
-        pass
+        self.client = GTAsyncClient()
 
     # This handler uses the order x/y/z for some reason.
+    @gen.coroutine
     def get(self, port, x, y, zoom, **kwargs):
+        client = AsyncHTTPClient()
         url = "http://localhost:%s/tile/%s/%s/%s.png" % (port, zoom, x, y)
         logger.debug("Handling %s" % (url))
         try:
-            response = requests.get(url)
-            logger.debug("TILE REQUEST RETURNED WITH %s" % (response.status_code))
-            if response.status_code == requests.codes.ok:
-                png = response.content
+            response = yield client.fetch(url)
+            logger.debug("TILE REQUEST RETURNED WITH %s" % (response.code))
+            if response.code == requests.codes.ok:
+                png = response.body
                 self.set_header('Content-Type', 'image/png')
                 self.write(png)
                 self.finish()
             else:
-                logger.debug("TILE RESPONSE IS NOT OK!: %s - %s" % (str(response), str(response.content)))
+                logger.debug("TILE RESPONSE IS NOT OK!: %s - %s" % (str(response), str(response.body)))
                 self.set_header('Content-Type', 'text/html')
                 self.set_status(404)
                 self.finish()
         except Exception as e:
+            logger.debug("Error in {}/{}/{}: {}". format(zoom, x, y, str(e)))
             self.set_header('Content-Type', 'text/html')
             self.write(str(e))
             self.set_status(500)
