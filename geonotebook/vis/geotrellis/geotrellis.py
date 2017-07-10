@@ -100,6 +100,10 @@ class GeoTrellis(object):
                 response = requests.get(url)
                 status_code = response.status_code
                 inproc_server_states['geotrellis']['ports'].pop(name, None)
+                if name in inproc_server_states['geotrellis']['server']:
+                    server = inproc_server_states['geotrellis']['server'][name]
+                    server.unbind()
+                    inproc_server_states['geotrellis']['server'].pop(name, None)
             return None
         return None
 
@@ -110,7 +114,7 @@ class GeoTrellis(object):
                 "GeoTrellis vis server requires kernel_id as kwarg to ingest!")
 
         if not "geotrellis" in inproc_server_states:
-            inproc_server_states["geotrellis"] = { "ports" : {} }
+            inproc_server_states["geotrellis"] = { "ports" : {} , "server" : {}}
 
         port_coordination = {'handshake': str(datetime.now()) + " " + str(os.getpid()) + " " + str(datetime.now()) + "\n"}
 
@@ -121,6 +125,7 @@ class GeoTrellis(object):
             server.setHandshake(port_coordination['handshake'])
             server.bind("0.0.0.0")
             port_coordination['port'] = server.port()
+            inproc_server_states['geotrellis']['server'][name] = server
             print('Added TMS server at host {}'.format(server.host()))
             print('Added TMS server at port {}'.format(server.port()))
         elif isinstance(data, GeoTrellisCatalogLayerData):
