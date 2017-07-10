@@ -50,9 +50,9 @@ class GeoTrellisTileHandler(IPythonHandler):
         url = "http://localhost:%s/tile/%s/%s/%s.png" % (port, zoom, x, y)
         logger.debug("Handling %s" % (url))
         try:
-            response = yield client.fetch(url)
+            response = yield client.fetch(url, raise_error=False, follow_redirects=True)
             logger.debug("TILE REQUEST RETURNED WITH %s" % (response.code))
-            if response.code == requests.codes.ok:
+            if response.code == 200:
                 png = response.body
                 self.set_header('Content-Type', 'image/png')
                 self.write(png)
