@@ -4,6 +4,7 @@ import six
 import string
 import sys
 import threading
+import time
 
 from collections import namedtuple
 from collections import OrderedDict
@@ -274,33 +275,27 @@ class InProcessTileLayer(DataLayer):
             self.fifo = data.fifo
         else:
             self.fifo = data.fifo = ''.join(random.choice(string.ascii_lowercase) for _ in range(10))
-        try:
-            self.filename = '/tmp/' + self.fifo
-            self.dictionary = {'flag': True}
-            os.mkfifo(self.filename)
-        except:
-            self.filename = None
-            self.dictionary = {'flag': False}
 
-        def unstick(filename):
-            f = open(filename, 'w')
-            f.close()
-
-        threading.Thread(target=unstick, args=(self.filename,)).start()
+        self.filename = '/tmp/' + self.fifo
+        self.dictionary = {'flag': True}
 
         def logging_fn(filename, dictionary):
             print("ONE: " + filename + " " + str(dictionary))
             if filename:
                 print("TWO.0")
+                f = open(filename, 'w')
+                f.close()
                 f = open(filename, 'r')
+                g = open("/tmp/dump.txt", 'w')
                 print("TWO.1")
                 while dictionary['flag']:
-                    print("THREE")
-                    print(f.readline())
-                print("XXX")
+                    s = f.readline()
+                    if len(s) > 0:
+                        g.write(s)
+                        g.flush()
+                    time.sleep(0.1)
 
-        logging_thread = threading.Thread(target=logging_fn, args=(self.filename, self.dictionary))
-        logging_thread.start()
+        threading.Thread(target=logging_fn, args=(self.filename, self.dictionary)).start()
 
         if vis_url is None:
             self.vis_url = self.config.vis_server.ingest(self.data,

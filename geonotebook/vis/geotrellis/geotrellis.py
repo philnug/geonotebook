@@ -21,29 +21,6 @@ from .render_methods import render_default_rdd
 # jupyterhub --no-ssl --Spawner.notebook_dir=/home/hadoop/notebooks
 
 
-class log4j(object):
-
-    @classmethod
-    def debug(cls, f, s):
-        f.write('DEBUG|' + s + '\n')
-        f.flush()
-
-    @classmethod
-    def info(cls, f, s):
-        f.write('INFO|' + s + '\n')
-        f.flush()
-
-    @classmethod
-    def warn(cls, f, s):
-        f.write('WARN|' + s + '\n')
-        f.flush()
-
-    @classmethod
-    def error(cls, f, s):
-        f.write('ERROR|' + s + '\n')
-        f.flush()
-
-
 class GTAsyncClient(object):
     __instance = None
 
@@ -70,36 +47,31 @@ class GeoTrellisTileHandler(IPythonHandler):
         url = "http://localhost:%s/tile/%s/%s/%s.png" % (port, zoom, x, y)
         filename = "/tmp/" + fifo
 
-        def unstick(filename):
-            f = open(filename, 'r')
-            f.close()
+        f = open(filename, 'a')
 
-        threading.Thread(target=unstick, args=(filename,)).start()
+        def debug(s):
+            f.write('DEBUG|' + s + '\n')
+            f.flush()
 
-        f = open(filename, 'w')
-
-        log4j.debug(f, "Handling %s" % (url))
+        debug("Handling %s" % (url))
         try:
             response = yield client.fetch(url, raise_error=False, follow_redirects=True)
-            log4j.debug(f, "TILE REQUEST RETURNED WITH %s" % (response.code))
+            debug("TILE REQUEST RETURNED WITH %s" % (response.code))
             if response.code == 200:
                 png = response.body
                 self.set_header('Content-Type', 'image/png')
                 self.write(png)
-                f.close()
                 self.finish()
             else:
-                log4j.debug(f, "TILE RESPONSE IS NOT OK!: %s - %s" % (str(response), str(response.body)))
+                debug("TILE RESPONSE IS NOT OK!: %s - %s" % (str(response), str(response.body)))
                 self.set_header('Content-Type', 'text/html')
                 self.set_status(404)
-                f.close()
                 self.finish()
         except Exception as e:
-            log4j.debug(f, "Error in {}/{}/{}: {}". format(zoom, x, y, str(e)))
+            debug("Error in {}/{}/{}: {}". format(zoom, x, y, str(e)))
             self.set_header('Content-Type', 'text/html')
             self.write(str(e))
             self.set_status(500)
-            f.close()
             self.finish()
         finally:
             f.close()
