@@ -3,6 +3,7 @@ import random
 import six
 import string
 import sys
+import threading
 
 from collections import namedtuple
 from collections import OrderedDict
@@ -256,8 +257,8 @@ class SimpleLayer(DataLayer):
 class InProcessTileLayer(DataLayer):
     def __del__(self):
         try:
-            filename = '/tmp/' + self.fifo
-            os.unlink(filename)
+            self.dictionary['flag'] = False
+            os.unlink(self.filename)
         except:
             pass
 
@@ -274,11 +275,32 @@ class InProcessTileLayer(DataLayer):
         else:
             self.fifo = data.fifo = ''.join(random.choice(string.ascii_lowercase) for _ in range(10))
         try:
-            print("XXX:" + self.fifo)
-            filename = '/tmp/' + self.fifo
-            os.mkfifo(filename)
+            self.filename = '/tmp/' + self.fifo
+            self.dictionary = {'flag': True}
+            os.mkfifo(self.filename)
         except:
-            pass
+            self.filename = None
+            self.dictionary = {'flag': False}
+
+        def unstick(filename):
+            f = open(filename, 'w')
+            f.close()
+
+        threading.Thread(target=unstick, args=(self.filename,)).start()
+
+        def logging_fn(filename, dictionary):
+            print("ONE: " + filename + " " + str(dictionary))
+            if filename:
+                print("TWO.0")
+                f = open(filename, 'r')
+                print("TWO.1")
+                while dictionary['flag']:
+                    print("THREE")
+                    print(f.readline())
+                print("XXX")
+
+        logging_thread = threading.Thread(target=logging_fn, args=(self.filename, self.dictionary))
+        logging_thread.start()
 
         if vis_url is None:
             self.vis_url = self.config.vis_server.ingest(self.data,

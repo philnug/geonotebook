@@ -2,7 +2,6 @@ import os
 import requests
 import threading
 import time
-import logging
 
 from concurrent.futures import ThreadPoolExecutor
 from tornado.httpclient import AsyncHTTPClient
@@ -70,6 +69,13 @@ class GeoTrellisTileHandler(IPythonHandler):
         client = AsyncHTTPClient()
         url = "http://localhost:%s/tile/%s/%s/%s.png" % (port, zoom, x, y)
         filename = "/tmp/" + fifo
+
+        def unstick(filename):
+            f = open(filename, 'r')
+            f.close()
+
+        threading.Thread(target=unstick, args=(filename,)).start()
+
         f = open(filename, 'w')
 
         log4j.debug(f, "Handling %s" % (url))
