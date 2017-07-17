@@ -15,7 +15,7 @@ class TMSRasterData(object):
     def __init__(self, tms, name=None):
         # https://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python
         self.fifo = ''.join(random.choice(string.ascii_lowercase) for _ in range(10))
-
+        self.pysc = tms.pysc
         self.tms = tms
 
         if not name:
@@ -26,7 +26,7 @@ class TMSRasterData(object):
 class GeoTrellisCatalogLayerData(object):
 
     def __init__(self,
-                 geopysc,
+                 pysc,
                  catalog_uri,
                  layer_name,
                  key_type = None,
@@ -36,17 +36,18 @@ class GeoTrellisCatalogLayerData(object):
         from geopyspark.geotrellis.constants import SPATIAL, TILE
 
         self.fifo = ''.join(random.choice(string.ascii_lowercase) for _ in range(10))
+        self.pysc = geopysc
 
         if not key_type:
             rdd_type = SPAITAL
         if not tile_type:
             tile_type = TILE
-        _construct_catalog(geopysc, catalog_uri, options)
+        _construct_catalog(pysc, catalog_uri, options)
         catalog = _mapped_cached[catalog_uri]
         self.catalog_uri = catalog_uri
         self.value_reader = catalog.value_reader
         self.layer_name = layer_name
-        self.key_type =  geopysc.map_key_input(key_type, True)
+        self.key_type =  pysc.map_key_input(key_type, True)
 
 class RasterData(collections.Sequence):
     _default_schema = 'file'

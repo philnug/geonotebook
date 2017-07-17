@@ -131,8 +131,15 @@ class GeoTrellis(object):
             server.bind("0.0.0.0")
             port_coordination['port'] = server.port()
             inproc_server_states['geotrellis']['server'][name] = server
-            print('Added TMS server at host {}'.format(server.host()))
-            print('Added TMS server at port {}'.format(server.port()))
+            m1 = 'Added TMS server at host {}'.format(server.host())
+            m2 = 'Added TMS server at port {}'.format(server.port())
+            if hasattr(data, 'pysc'):
+                pysc = data.pysc
+                pysc._gateway.jvm.geopyspark.geotrellis.Log.info(m1)
+                pysc._gateway.jvm.geopyspark.geotrellis.Log.info(m2)
+            else:
+                print(m1)
+                print(m2)
         elif isinstance(data, GeoTrellisCatalogLayerData):
             render_tile = kwargs.pop('render_tile', None)
             if render_tile is None:
