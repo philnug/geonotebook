@@ -276,25 +276,24 @@ class InProcessTileLayer(DataLayer):
         else:
             self.fifo = data.fifo = ''.join(random.choice(string.ascii_lowercase) for _ in range(10))
 
-        self.filename = '/tmp/' + self.fifo
-        self.dictionary = {'flag': True}
+        try:
+            self.filename = '/tmp/' + self.fifo
+            self.dictionary = {'flag': True}
+            os.mkfifo(self.filename)
+        except:
+            self.filename = None
+            self.dictionary = {'flag': False}
 
         def logging_fn(filename, dictionary):
-            print("ONE: " + filename + " " + str(dictionary))
             if filename:
-                print("TWO.0")
-                f = open(filename, 'w')
-                f.close()
                 f = open(filename, 'r')
                 g = open("/tmp/dump.txt", 'w')
-                print("TWO.1")
                 while dictionary['flag']:
                     s = f.readline()
                     if len(s) > 0:
                         g.write(s)
                         g.flush()
                     time.sleep(0.1)
-
         threading.Thread(target=logging_fn, args=(self.filename, self.dictionary)).start()
 
         if vis_url is None:

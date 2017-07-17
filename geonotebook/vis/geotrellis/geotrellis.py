@@ -47,11 +47,11 @@ class GeoTrellisTileHandler(IPythonHandler):
         url = "http://localhost:%s/tile/%s/%s/%s.png" % (port, zoom, x, y)
         filename = "/tmp/" + fifo
 
-        f = open(filename, 'a')
-
         def debug(s):
+            f = open(filename, 'w')
             f.write('DEBUG|' + s + '\n')
             f.flush()
+            f.close()
 
         debug("Handling %s" % (url))
         try:
@@ -73,8 +73,6 @@ class GeoTrellisTileHandler(IPythonHandler):
             self.write(str(e))
             self.set_status(500)
             self.finish()
-        finally:
-            f.close()
 
 class GeoTrellis(object):
 
