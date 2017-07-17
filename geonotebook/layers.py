@@ -1,9 +1,11 @@
-from collections import namedtuple
-from collections import OrderedDict
-
+import os
+import random
+import six
+import string
 import sys
 
-import six
+from collections import namedtuple
+from collections import OrderedDict
 
 from . import annotations
 from .config import Config
@@ -252,6 +254,13 @@ class SimpleLayer(DataLayer):
             self.__class__.__name__, self.name.split("_")[0])
 
 class InProcessTileLayer(DataLayer):
+    def __del__(self):
+        try:
+            filename = '/tmp/' + self.fifo
+            os.unlink(filename)
+        except:
+            pass
+
     def __init__(self, name, remote, data, inproc_server_states, vis_url=None, **kwargs):
         super(InProcessTileLayer, self).__init__(
             name, remote, data=data, vis_url=vis_url, **kwargs
@@ -259,6 +268,17 @@ class InProcessTileLayer(DataLayer):
 
         vis_options = self.vis_options.serialize()
         vis_options.update(kwargs)
+
+        if hasattr(data, 'fifo'):
+            self.fifo = data.fifo
+        else:
+            self.fifo = data.fifo = ''.join(random.choice(string.ascii_lowercase) for _ in range(10))
+        try:
+            print("XXX:" + self.fifo)
+            filename = '/tmp/' + self.fifo
+            os.mkfifo(filename)
+        except:
+            pass
 
         if vis_url is None:
             self.vis_url = self.config.vis_server.ingest(self.data,

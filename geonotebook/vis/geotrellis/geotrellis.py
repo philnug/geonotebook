@@ -19,9 +19,30 @@ from .server import (rdd_server,
 
 from .render_methods import render_default_rdd
 
-logger = logging.getLogger('geotrellis-tile-server')
-logger.setLevel(10)
 # jupyterhub --no-ssl --Spawner.notebook_dir=/home/hadoop/notebooks
+
+
+class log4j(object):
+
+    @classmethod
+    def debug(cls, f, s):
+        f.write('DEBUG|' + s + '\n')
+        f.flush()
+
+    @classmethod
+    def info(cls, f, s):
+        f.write('INFO|' + s + '\n')
+        f.flush()
+
+    @classmethod
+    def warn(cls, f, s):
+        f.write('WARN|' + s + '\n')
+        f.flush()
+
+    @classmethod
+    def error(cls, f, s):
+        f.write('ERROR|' + s + '\n')
+        f.flush()
 
 
 class GTAsyncClient(object):
@@ -45,29 +66,37 @@ class GeoTrellisTileHandler(IPythonHandler):
 
     # This handler uses the order x/y/z for some reason.
     @gen.coroutine
-    def get(self, port, x, y, zoom, **kwargs):
+    def get(self, fifo, port, x, y, zoom, **kwargs):
         client = AsyncHTTPClient()
         url = "http://localhost:%s/tile/%s/%s/%s.png" % (port, zoom, x, y)
-        logger.debug("Handling %s" % (url))
+        filename = "/tmp/" + fifo
+        f = open(filename, 'w')
+
+        log4j.debug(f, "Handling %s" % (url))
         try:
             response = yield client.fetch(url, raise_error=False, follow_redirects=True)
-            logger.debug("TILE REQUEST RETURNED WITH %s" % (response.code))
+            log4j.debug(f, "TILE REQUEST RETURNED WITH %s" % (response.code))
             if response.code == 200:
                 png = response.body
                 self.set_header('Content-Type', 'image/png')
                 self.write(png)
+                f.close()
                 self.finish()
             else:
-                logger.debug("TILE RESPONSE IS NOT OK!: %s - %s" % (str(response), str(response.body)))
+                log4j.debug(f, "TILE RESPONSE IS NOT OK!: %s - %s" % (str(response), str(response.body)))
                 self.set_header('Content-Type', 'text/html')
                 self.set_status(404)
+                f.close()
                 self.finish()
         except Exception as e:
-            logger.debug("Error in {}/{}/{}: {}". format(zoom, x, y, str(e)))
+            log4j.debug(f, "Error in {}/{}/{}: {}". format(zoom, x, y, str(e)))
             self.set_header('Content-Type', 'text/html')
             self.write(str(e))
             self.set_status(500)
+            f.close()
             self.finish()
+        finally:
+            f.close()
 
 class GeoTrellis(object):
 
@@ -81,7 +110,7 @@ class GeoTrellis(object):
         pass
 
     def initialize_webapp(self, config, webapp):
-        pattern = r'/user/[^/]+/geotrellis/([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+)\.png.*'
+        pattern = r'/user/[^/]+/geotrellis/([a-z]+)/([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+)\.png.*'
         webapp.add_handlers(r'.*', [(pattern, GeoTrellisTileHandler)])
 
     def get_params(self, name, data, **kwargs):
@@ -160,5 +189,6 @@ class GeoTrellis(object):
         inproc_server_states['geotrellis']['ports'][name] = port_coordination['port']
 
         user = os.environ['LOGNAME'] if 'LOGNAME' in os.environ else 'hadoop'
-        base_url = "/user/%s/geotrellis" % user
+        fifo = getattr(data, 'fifo', 'xxx')
+        base_url = "/user/%s/geotrellis/%s" % (user, fifo)
         return "%s/%d" % (base_url, port_coordination['port'])

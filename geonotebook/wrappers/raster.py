@@ -1,6 +1,8 @@
 import collections
 import os
+import random
 import re
+import string
 
 import numpy as np
 
@@ -8,8 +10,12 @@ import pkg_resources as pr
 
 from shapely.geometry import Polygon
 
+
 class TMSRasterData(object):
     def __init__(self, tms, name=None):
+        # https://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python
+        self.fifo = ''.join(random.choice(string.ascii_lowercase) for _ in range(10))
+
         self.tms = tms
 
         if not name:
@@ -28,6 +34,8 @@ class GeoTrellisCatalogLayerData(object):
                  options = None,):
         from geopyspark.geotrellis.catalog import _construct_catalog, _mapped_cached
         from geopyspark.geotrellis.constants import SPATIAL, TILE
+
+        self.fifo = ''.join(random.choice(string.ascii_lowercase) for _ in range(10))
 
         if not key_type:
             rdd_type = SPAITAL
