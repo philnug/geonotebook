@@ -134,9 +134,11 @@ class GeoTrellis(object):
             m1 = 'Added TMS server at host {}'.format(server.host())
             m2 = 'Added TMS server at port {}'.format(server.port())
             if hasattr(data, 'pysc'):
+                from geopyspark.geotrellis import Log
+
                 pysc = data.pysc
-                pysc._gateway.jvm.geopyspark.geotrellis.Log.info(m1)
-                pysc._gateway.jvm.geopyspark.geotrellis.Log.info(m2)
+                Log.info(pysc, m1)
+                Log.info(pysc, m2)
             else:
                 print(m1)
                 print(m2)

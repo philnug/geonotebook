@@ -285,6 +285,8 @@ class InProcessTileLayer(DataLayer):
             self.dictionary = {'flag': False}
 
         def logging_fn(filename, dictionary):
+            from geopyspark.geotrellis import Log
+
             if filename and hasattr(data, 'pysc'):
                 pysc = data.pysc
                 log = pysc._gateway.jvm.geopyspark.geotrellis.Log
@@ -294,13 +296,13 @@ class InProcessTileLayer(DataLayer):
                     if len(s) > 0:
                         a = s.strip().split('|')
                         if a[0] == 'DEBUG':
-                            pysc._gateway.jvm.geopyspark.geotrellis.Log.debug(a[1])
+                            Log.debug(pysc, a[1])
                         elif a[0] == 'INFO':
-                            pysc._gateway.jvm.geopyspark.geotrellis.Log.info(a[1])
+                            Log.info(pysc, a[1])
                         elif a[0] == 'WARN':
-                            pysc._gateway.jvm.geopyspark.geotrellis.Log.warn(a[1])
+                            Log.warn(pysc, a[1])
                         elif a[0] == 'ERROR':
-                            pysc._gateway.jvm.geopyspark.geotrellis.Log.error(a[1])
+                            Log.error(pysc, a[1])
                         else:
                             raise Exception
                     time.sleep(0.1)
