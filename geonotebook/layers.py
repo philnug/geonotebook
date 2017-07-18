@@ -1,9 +1,13 @@
+import os
+import random
+import six
+import string
+import sys
+import threading
+import time
+
 from collections import namedtuple
 from collections import OrderedDict
-
-import sys
-
-import six
 
 from . import annotations
 from .config import Config
@@ -252,6 +256,13 @@ class SimpleLayer(DataLayer):
             self.__class__.__name__, self.name.split("_")[0])
 
 class InProcessTileLayer(DataLayer):
+    def __del__(self):
+        try:
+            self.dictionary['flag'] = False
+            os.unlink(self.filename)
+        except:
+            pass
+
     def __init__(self, name, remote, data, inproc_server_states, vis_url=None, **kwargs):
         super(InProcessTileLayer, self).__init__(
             name, remote, data=data, vis_url=vis_url, **kwargs
@@ -259,6 +270,43 @@ class InProcessTileLayer(DataLayer):
 
         vis_options = self.vis_options.serialize()
         vis_options.update(kwargs)
+
+        if hasattr(data, 'fifo'):
+            self.fifo = data.fifo
+        else:
+            self.fifo = data.fifo = ''.join(random.choice(string.ascii_lowercase) for _ in range(10))
+
+        try:
+            self.filename = '/tmp/' + self.fifo
+            self.dictionary = {'flag': True}
+            os.mkfifo(self.filename)
+        except:
+            self.filename = None
+            self.dictionary = {'flag': False}
+
+        def logging_fn(filename, dictionary):
+            from geopyspark.geotrellis import Log
+
+            if filename and hasattr(data, 'pysc'):
+                pysc = data.pysc
+                log = pysc._gateway.jvm.geopyspark.geotrellis.Log
+                f = open(filename, 'r')
+                while dictionary['flag']:
+                    s = f.readline()
+                    if len(s) > 0:
+                        a = s.strip().split('|')
+                        if a[0] == 'DEBUG':
+                            Log.debug(pysc, a[1])
+                        elif a[0] == 'INFO':
+                            Log.info(pysc, a[1])
+                        elif a[0] == 'WARN':
+                            Log.warn(pysc, a[1])
+                        elif a[0] == 'ERROR':
+                            Log.error(pysc, a[1])
+                        else:
+                            raise Exception
+                    time.sleep(0.1)
+        threading.Thread(target=logging_fn, args=(self.filename, self.dictionary)).start()
 
         if vis_url is None:
             self.vis_url = self.config.vis_server.ingest(self.data,

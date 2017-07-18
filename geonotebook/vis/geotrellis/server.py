@@ -29,9 +29,7 @@ def make_tile_server(port_coordination, fn):
     app = Flask(__name__)
     http_server = None
 
-    f = open(os.devnull, "w")
-    # sys.stdout = f
-    sys.stderr = f
+    sys.stderr = open(os.devnull, "w")
 
     def shutdown1():
         time.sleep(0.5)
