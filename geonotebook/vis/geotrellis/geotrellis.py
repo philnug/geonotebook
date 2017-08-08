@@ -2,6 +2,7 @@ import os
 import requests
 import threading
 import time
+import logging
 
 from concurrent.futures import ThreadPoolExecutor
 from tornado.httpclient import AsyncHTTPClient
@@ -18,6 +19,8 @@ from .server import (rdd_server,
 
 from .render_methods import render_default_rdd
 
+logger = logging.getLogger('geotrellis-tile-server')
+logger.setLevel(10)
 # jupyterhub --no-ssl --Spawner.notebook_dir=/home/hadoop/notebooks
 
 
@@ -42,33 +45,21 @@ class GeoTrellisTileHandler(IPythonHandler):
 
     # This handler uses the order x/y/z for some reason.
     @gen.coroutine
-    def get(self, fifo, port, x, y, zoom, **kwargs):
+    def get(self, port, x, y, zoom, **kwargs):
         client = AsyncHTTPClient()
         url = "http://localhost:%s/tile/%s/%s/%s.png" % (port, zoom, x, y)
-        filename = "/tmp/" + fifo
-
-        def debug(s):
-            f = open(filename, 'w')
-            f.write('DEBUG|' + s + '\n')
-            f.flush()
-            f.close()
-
-        debug("Handling %s" % (url))
         try:
             response = yield client.fetch(url, raise_error=False, follow_redirects=True)
-            debug("TILE REQUEST RETURNED WITH %s" % (response.code))
             if response.code == 200:
                 png = response.body
                 self.set_header('Content-Type', 'image/png')
                 self.write(png)
                 self.finish()
             else:
-                debug("TILE RESPONSE IS NOT OK!: %s - %s" % (str(response), str(response.body)))
                 self.set_header('Content-Type', 'text/html')
                 self.set_status(404)
                 self.finish()
         except Exception as e:
-            debug("Error in {}/{}/{}: {}". format(zoom, x, y, str(e)))
             self.set_header('Content-Type', 'text/html')
             self.write(str(e))
             self.set_status(500)
@@ -86,7 +77,7 @@ class GeoTrellis(object):
         pass
 
     def initialize_webapp(self, config, webapp):
-        pattern = r'/user/[^/]+/geotrellis/([a-z]+)/([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+)\.png.*'
+        pattern = r'/user/[^/]+/geotrellis/([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+)\.png.*'
         webapp.add_handlers(r'.*', [(pattern, GeoTrellisTileHandler)])
 
     def get_params(self, name, data, **kwargs):
@@ -131,17 +122,6 @@ class GeoTrellis(object):
             server.bind("0.0.0.0")
             port_coordination['port'] = server.port()
             inproc_server_states['geotrellis']['server'][name] = server
-            m1 = 'Added TMS server at host {}'.format(server.host())
-            m2 = 'Added TMS server at port {}'.format(server.port())
-            if hasattr(data, 'pysc'):
-                from geopyspark.geotrellis import Log
-
-                pysc = data.pysc
-                Log.info(pysc, m1)
-                Log.info(pysc, m2)
-            else:
-                print(m1)
-                print(m2)
         elif isinstance(data, GeoTrellisCatalogLayerData):
             render_tile = kwargs.pop('render_tile', None)
             if render_tile is None:
@@ -174,6 +154,5 @@ class GeoTrellis(object):
         inproc_server_states['geotrellis']['ports'][name] = port_coordination['port']
 
         user = os.environ['LOGNAME'] if 'LOGNAME' in os.environ else 'hadoop'
-        fifo = getattr(data, 'fifo', 'xxx')
-        base_url = "/user/%s/geotrellis/%s" % (user, fifo)
+        base_url = "/user/%s/geotrellis" % user
         return "%s/%d" % (base_url, port_coordination['port'])
