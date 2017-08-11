@@ -117,11 +117,10 @@ class GeoTrellis(object):
         # TODO: refactor this to different methods?
         if isinstance(data, TMSRasterData):
             tms = data.tms
-            server = tms.server
-            server.setHandshake(port_coordination['handshake'])
-            server.bind("0.0.0.0")
-            port_coordination['port'] = server.port()
-            inproc_server_states['geotrellis']['server'][name] = server
+            tms.set_handshake(port_coordination['handshake'])
+            tms.bind()
+            port_coordination['port'] = tms.port
+            inproc_server_states['geotrellis']['server'][name] = tms
         elif isinstance(data, GeoTrellisCatalogLayerData):
             render_tile = kwargs.pop('render_tile', None)
             if render_tile is None:
